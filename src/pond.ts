@@ -22,7 +22,6 @@ export function calculatePondHealth(projectDir: string): PondHealthReport {
   let deadCode = 0;
   let commitRecency = 0;
 
-  // Check lint errors
   try {
     const result = execSync('npx eslint . --format json 2>/dev/null || true', {
       cwd: projectDir,
@@ -39,7 +38,6 @@ export function calculatePondHealth(projectDir: string): PondHealthReport {
     details.push('No linter configured');
   }
 
-  // Check TODOs
   try {
     const result = execSync('grep -r "TODO\\|FIXME\\|HACK" --include="*.ts" --include="*.js" --include="*.tsx" --include="*.jsx" . 2>/dev/null || true', {
       cwd: projectDir,
@@ -52,7 +50,6 @@ export function calculatePondHealth(projectDir: string): PondHealthReport {
     }
   } catch {}
 
-  // Check git recency
   try {
     const lastCommit = execSync('git log -1 --format=%ct', {
       cwd: projectDir,
@@ -65,7 +62,6 @@ export function calculatePondHealth(projectDir: string): PondHealthReport {
     }
   } catch {}
 
-  // Check for dead code (simple heuristic: unused exports)
   try {
     const srcDir = path.join(projectDir, 'src');
     if (fs.existsSync(srcDir)) {
@@ -73,12 +69,10 @@ export function calculatePondHealth(projectDir: string): PondHealthReport {
         cwd: projectDir,
         encoding: 'utf-8',
       }).trim().split('\n').filter(Boolean);
-      // Simple check: count files with no imports from other files
       deadCode = 0; // Placeholder — real impl would use ts-morph
     }
   } catch {}
 
-  // Check test failures
   try {
     execSync('npm test 2>/dev/null', { cwd: projectDir, timeout: 60000, encoding: 'utf-8' });
     details.push('All tests passing ✅');

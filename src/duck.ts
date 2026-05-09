@@ -1,11 +1,10 @@
 export type DuckMood = 'happy' | 'worried' | 'excited' | 'sleeping' | 'hungry' | 'proud';
 
-// ⬇️ REPLACE THIS with your ASCII art ⬇️
 const DUCK_ART = `
         __
       <(o )___
        ( ._>  /
-        \e`---'
+        \`---'
 `;
 
 const MOOD_INDICATOR: Record<DuckMood, string> = {

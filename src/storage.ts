@@ -47,7 +47,6 @@ export class Storage {
     return fs.existsSync(STATE_FILE);
   }
 
-  // --- State ---
   loadState(): QuakState {
     if (!fs.existsSync(STATE_FILE)) {
       return this.defaultState();
@@ -75,7 +74,6 @@ export class Storage {
     };
   }
 
-  // --- Providers ---
   loadProviders(): ProviderConfig[] {
     if (!fs.existsSync(PROVIDERS_FILE)) return [];
     return JSON.parse(fs.readFileSync(PROVIDERS_FILE, 'utf-8'));
@@ -91,7 +89,6 @@ export class Storage {
     return providers.find(p => p.name === this.loadState().currentProject) || providers[0] || null;
   }
 
-  // --- Achievements ---
   loadAchievements(): Achievement[] {
     if (!fs.existsSync(ACHIEVEMENTS_FILE)) return this.defaultAchievements();
     return JSON.parse(fs.readFileSync(ACHIEVEMENTS_FILE, 'utf-8'));
@@ -119,7 +116,6 @@ export class Storage {
     ];
   }
 
-  // --- Memory ---
   loadMemory(): string {
     if (!fs.existsSync(MEMORY_FILE)) return '';
     return fs.readFileSync(MEMORY_FILE, 'utf-8');
@@ -135,7 +131,6 @@ export class Storage {
     fs.appendFileSync(MEMORY_FILE, content + '\n');
   }
 
-  // --- Project State ---
   loadProjectState(projectPath: string): { pondHealth: number; lastVisit: number; visits: number } {
     const hash = Buffer.from(projectPath).toString('base64').replace(/[/=+]/g, '');
     const file = path.join(PROJECTS_DIR, `${hash}.json`);

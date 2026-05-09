@@ -5,7 +5,6 @@ const HUNGER_DECAY_MS = 2 * 60 * 60 * 1000; // 2 hours
 
 export function getHungerLevel(state: QuakState): number {
   const elapsed = Date.now() - state.lastFed;
-  // 0 = full, 1 = starving
   return Math.min(1, elapsed / HUNGER_DECAY_MS);
 }
 
