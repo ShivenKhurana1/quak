@@ -141,7 +141,7 @@ export function handleCommand(
     }
 
     case '/mode':
-      return { output: `Current mode: agent\nSwitch with: /mode agent|chat|plan` };
+      return { output: `Use /mode <agent|chat|plan> to switch modes` };
 
     case '/init': {
       const quakMd = `# QUAK.md — Project Context\n\nThis file helps Quak understand your project.\n\n## Overview\n- Project: ${projectDir.split('/').pop()}\n- Type: (describe your project type)\n\n## Structure\n- src/ — main source code\n- tests/ — test files\n\n## Conventions\n- (add your coding conventions here)\n\n## Notes\n- (add any project-specific notes here)\n`;

@@ -3,19 +3,19 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createGroq } from '@ai-sdk/groq';
 
-let activeProvider: string = '';
-
-export function setActiveProvider(name: string): void {
-  activeProvider = name;
+export function setActiveProvider(storage: Storage, name: string): void {
+  const state = storage.loadState();
+  state.currentProject = name; // reusing currentProject for active provider for now
+  storage.saveState(state);
 }
 
-export function getActiveProviderName(): string {
-  return activeProvider;
+export function getActiveProviderName(storage: Storage): string {
+  const provider = storage.getActiveProvider();
+  return provider ? provider.name : '';
 }
 
 export function getLLM(storage: Storage) {
-  const providers = storage.loadProviders();
-  const provider = providers.find(p => p.name === activeProvider) || providers[0];
+  const provider = storage.getActiveProvider();
 
   if (!provider) {
     throw new Error('No provider configured. Run /provider add first!');
@@ -47,7 +47,8 @@ export function addProvider(storage: Storage, config: ProviderConfig): void {
     providers.push(config);
   }
   storage.saveProviders(providers);
-  if (!activeProvider) activeProvider = config.name;
+  const active = getActiveProviderName(storage);
+  if (!active) setActiveProvider(storage, config.name);
 }
 
 export function removeProvider(storage: Storage, name: string): boolean {
@@ -56,8 +57,9 @@ export function removeProvider(storage: Storage, name: string): boolean {
   if (idx < 0) return false;
   providers.splice(idx, 1);
   storage.saveProviders(providers);
-  if (activeProvider === name && providers.length > 0) {
-    activeProvider = providers[0].name;
+  const active = getActiveProviderName(storage);
+  if (active === name && providers.length > 0) {
+    setActiveProvider(storage, providers[0].name);
   }
   return true;
 }
@@ -65,8 +67,9 @@ export function removeProvider(storage: Storage, name: string): boolean {
 export function listProviders(storage: Storage): string {
   const providers = storage.loadProviders();
   if (providers.length === 0) return 'No providers configured. Run /provider add';
+  const active = getActiveProviderName(storage);
   return providers.map(p => {
-    const active = p.name === activeProvider ? ' ← active' : '';
-    return `${p.name} (${p.type}/${p.model})${active}`;
+    const isActive = p.name === active ? ' ← active' : '';
+    return `${p.name} (${p.type}/${p.model})${isActive}`;
   }).join('\n');
 }

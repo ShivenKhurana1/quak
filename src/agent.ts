@@ -94,7 +94,7 @@ export async function* runAgent(
     system: fullSystem,
     messages,
     tools,
-    maxSteps: mode === 'agent' ? 10 : 0,
+    maxSteps: mode === 'agent' ? 10 : 1,
   });
 
   for await (const chunk of result.textStream) {

@@ -54,6 +54,13 @@ export function App({ storage }: AppProps) {
       const cmd = parts[0];
       const args = parts.slice(1).join(' ');
 
+      if (cmd === '/mode' && ['agent', 'chat', 'plan'].includes(args)) {
+        setMode(args as 'agent' | 'chat' | 'plan');
+        const sysMsg: Message = { role: 'system', content: `Switched to ${args} mode` };
+        setMessages(prev => [...prev, sysMsg]);
+        return;
+      }
+
       const result = handleCommand(cmd, args, storage, process.cwd());
       if (result) {
         if (cmd === '/clear') {
