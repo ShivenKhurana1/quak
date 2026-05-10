@@ -7,24 +7,16 @@ interface ChatMessageProps {
 }
 
 export function ChatMessage({ role, content }: ChatMessageProps) {
-  const colors: Record<string, string> = {
-    user: 'green',
-    assistant: 'cyan',
-    system: 'yellow',
-  };
-
-  const prefixes: Record<string, string> = {
-    user: 'You',
-    assistant: '🦆 Quak',
-    system: '⚡',
-  };
-
+  const isUser = role === 'user';
+  
   return (
-    <Box marginBottom={0}>
-      <Text color={colors[role]} bold>
-        {prefixes[role]}:{' '}
+    <Box>
+      <Text dimColor={isUser} color={!isUser ? 'white' : undefined}>
+        {role === 'user' ? '> ' : (role === 'system' ? '~ ' : '• ')}
       </Text>
-      <Text>{content}</Text>
+      <Text dimColor={isUser} color={!isUser ? 'white' : undefined}>
+        {content}
+      </Text>
     </Box>
   );
 }

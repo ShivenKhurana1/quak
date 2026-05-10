@@ -8,7 +8,7 @@ import { addXP } from './xp.js';
 import { getMoodFromHunger } from './bread.js';
 import { checkAchievements } from './achievements.js';
 import { pushEvent } from './current.js';
-import { DuckDisplay } from './components/DuckDisplay.js';
+import { TopHeader } from './components/TopHeader.js';
 import { ChatMessage } from './components/ChatMessage.js';
 import { StatusBar } from './components/StatusBar.js';
 
@@ -27,8 +27,8 @@ export function App({ storage }: AppProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [mode, setMode] = useState<'agent' | 'chat' | 'plan'>('agent');
   const [state, setState] = useState<QuakState>(storage.loadState());
+  const [provider, setProvider] = useState(storage.getActiveProvider());
   const [isLoading, setIsLoading] = useState(false);
-  const [pondHealth, setPondHealth] = useState<number | undefined>(undefined);
 
   const mood = getMoodFromHunger(state);
 
@@ -64,6 +64,7 @@ export function App({ storage }: AppProps) {
         }
         if (result.shouldExit) exit();
         setState(storage.loadState());
+        setProvider(storage.getActiveProvider());
         return;
       }
     }
@@ -98,21 +99,25 @@ export function App({ storage }: AppProps) {
   const visibleMessages = messages.slice(-15);
 
   return (
-    <Box flexDirection="column" height="100%">
-      <DuckDisplay state={state} mood={mood} />
-      <StatusBar mode={mode} pondHealth={pondHealth} />
+    <Box flexDirection="column" height="100%" padding={1}>
+      <TopHeader state={state} mood={mood} provider={provider} />
 
-      <Box flexDirection="column" flexGrow={1} paddingX={1}>
+      {/* Main chat area */}
+      <Box flexDirection="column" flexGrow={1} marginY={1}>
         {visibleMessages.map((msg, i) => (
           <ChatMessage key={i} role={msg.role} content={msg.content} />
         ))}
-        {isLoading && <Text color="yellow">🦆 Quak is thinking...</Text>}
+        {isLoading && <Text color="yellow"> Quak is thinking...</Text>}
       </Box>
 
-      <Box borderStyle="single" borderColor="gray" paddingX={1}>
-        <Text color="green" bold>{'>'} </Text>
-        <TextInput value={input} onChange={setInput} onSubmit={handleSubmit} />
+      {/* Input area */}
+      <Box borderTopStyle="single" borderTopColor="red" borderBottomColor="red" borderBottomStyle="single" borderLeftStyle="none" borderRightStyle="none" paddingTop={1} paddingBottom={1}>
+        <Text color="red">{'> '} </Text>
+        <TextInput value={input} onChange={setInput} onSubmit={handleSubmit} placeholder="ask quak anything..." dimPlaceholder />
       </Box>
+
+      {/* Bottom status bar */}
+      <StatusBar mode={mode} state={state} provider={provider} />
     </Box>
   );
 }

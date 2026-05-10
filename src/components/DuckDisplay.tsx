@@ -18,13 +18,27 @@ export function DuckDisplay({ state, mood }: DuckDisplayProps) {
   const xpBar = '█'.repeat(Math.floor(progress.percent / 10)) + '░'.repeat(10 - Math.floor(progress.percent / 10));
 
   return (
-    <Box flexDirection="column" borderStyle="round" borderColor="yellow" padding={0}>
-      <Text color="yellow">{duck}</Text>
-      <Box marginTop={0}>
-        <Text dimColor>  Lvl {state.level} </Text>
-        <Text dimColor>XP [{xpBar}] {progress.percent}% </Text>
-        <Text dimColor>🍞 {state.bread} </Text>
-        <Text color={hunger > 70 ? 'red' : 'dim'}>Hunger {hunger}%</Text>
+    <Box flexDirection="row" justifyContent="space-between" paddingX={1}>
+      <Box flexDirection="column">
+        <Text color="yellow">{duck}</Text>
+      </Box>
+      <Box flexDirection="column" justifyContent="center">
+        <Box flexDirection="row" gap={2}>
+          <Text color="cyan">Level</Text>
+          <Text>{state.level}</Text>
+        </Box>
+        <Box flexDirection="row" gap={2}>
+          <Text color="cyan">XP</Text>
+          <Text>[{xpBar}] {progress.percent}%</Text>
+        </Box>
+        <Box flexDirection="row" gap={2}>
+          <Text color="cyan">Bread</Text>
+          <Text>🍞 {state.bread}</Text>
+        </Box>
+        <Box flexDirection="row" gap={2}>
+          <Text color="cyan">Hunger</Text>
+          <Text color={hunger > 70 ? 'red' : 'gray'}>{hunger}%</Text>
+        </Box>
       </Box>
     </Box>
   );
