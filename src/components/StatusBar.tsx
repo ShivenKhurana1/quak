@@ -23,7 +23,7 @@ export function StatusBar({ mode, state, provider }: StatusBarProps) {
       {/* Left side: Level and XP */}
       <Box flexDirection="row" gap={2}>
         <Text color="yellow" bold> lv.{state.level}</Text>
-        <Text color="yellow">♦ {progress.currentXp}/{progress.nextLevelXp}xp</Text>
+        <Text color="yellow"> {progress.currentXp}/{progress.nextLevelXp}xp</Text>
       </Box>
 
       {/* Center: Model info */}
@@ -36,7 +36,7 @@ export function StatusBar({ mode, state, provider }: StatusBarProps) {
       {/* Right side: Mode */}
       <Box flexDirection="row">
         <Text backgroundColor={modeColors[mode]} color="black" bold>
-          {' ♦ ' + mode + ' mode '}
+          {'  ' + mode + ' mode '}
         </Text>
       </Box>
     </Box>

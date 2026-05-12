@@ -8,11 +8,11 @@ const DUCK_ART = `
 `;
 
 const MOOD_INDICATOR: Record<DuckMood, string> = {
-  happy: '🦆 Quak is happy!',
+  happy: ' Quak is happy!',
   worried: '😰 Quak is worried about the pond...',
   excited: '🤩 QUAK QUAK QUAK!',
   sleeping: '😴 Quak is sleeping... (idle)',
-  hungry: '🍞 Quak is hungry! /feed me!',
+  hungry: ' Quak is hungry! /feed me!',
   proud: '😤 Quak is proud of you!',
 };
 

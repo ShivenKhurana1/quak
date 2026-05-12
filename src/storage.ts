@@ -103,15 +103,15 @@ export class Storage {
     return [
       { id: 'first_quack', name: 'First Quack', description: 'Run Quak for the first time', icon: '🐥', reward: 10 },
       { id: 'daily_dabbler', name: 'Daily Dabbler', description: 'Use Quak daily', icon: '📅', reward: 5 },
-      { id: 'no_life_pond', name: 'No Life Pond', description: 'Run 100 commands', icon: '💀', reward: 20 },
+      { id: 'no_life_pond', name: 'No Life Pond', description: 'Run 100 commands', icon: '', reward: 20 },
       { id: 'midnight_waddler', name: 'Midnight Waddler', description: 'Use Quak after midnight', icon: '🌙', reward: 15 },
       { id: 'chronically_online', name: 'Chronically Online', description: 'Send 10 AI messages', icon: '🤖', reward: 10 },
       { id: 'flock_leader', name: 'Flock Leader', description: '7-day streak', icon: '👑', reward: 100 },
-      { id: 'bread_giver', name: 'Bread Giver', description: 'Feed Quak', icon: '🍞', reward: 5 },
-      { id: 'bold_duck', name: 'Bold Duck', description: 'Reach level 5', icon: '🦆', reward: 75 },
+      { id: 'bread_giver', name: 'Bread Giver', description: 'Feed Quak', icon: '', reward: 5 },
+      { id: 'bold_duck', name: 'Bold Duck', description: 'Reach level 5', icon: '', reward: 75 },
       { id: 'absolute_drake', name: 'Absolute Drake', description: 'Reach level 10', icon: '🪿', reward: 150 },
-      { id: 'rubber_duck_debug', name: 'Rubber Duck Debug', description: 'Use /swim 10 times', icon: '🛁', reward: 25 },
-      { id: 'pond_cleaner', name: 'Pond Cleaner', description: 'Delete 100 lines of dead code', icon: '🧹', reward: 30 },
+      { id: 'rubber_duck_debug', name: 'Rubber Duck Debug', description: 'Use /swim 10 times', icon: '', reward: 25 },
+      { id: 'pond_cleaner', name: 'Pond Cleaner', description: 'Delete 100 lines of dead code', icon: '', reward: 30 },
       { id: 'bug_snack', name: 'Bug Snack', description: 'Fix 25 bugs', icon: '🐛', reward: 50 },
     ];
   }

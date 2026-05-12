@@ -39,7 +39,7 @@ export function checkAchievements(storage: Storage, state: QuakState): Achieveme
 
 export function formatAchievements(achievements: Achievement[]): string {
   return achievements.map(a => {
-    const status = a.unlockedAt ? `✅ Unlocked (${new Date(a.unlockedAt).toLocaleDateString()})` : ' Locked';
+    const status = a.unlockedAt ? ` Unlocked (${new Date(a.unlockedAt).toLocaleDateString()})` : ' Locked';
     return `${a.icon} ${a.name} — ${a.description} | ${status} | +$${a.reward} bread`;
   }).join('\n');
 }

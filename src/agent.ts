@@ -8,7 +8,17 @@ import { checkAchievements } from './achievements.js';
 import { getDuckSystemPrompt } from './duck.js';
 import fs from 'fs';
 import path from 'path';
-import { execSync } from 'child_process';
+import { exec } from 'child_process';
+import util from 'util';
+import { search } from 'duck-duck-scrape';
+
+const execAsync = util.promisify(exec);
+
+
+
+
+
+
 
 export function createTools(storage: Storage, projectDir: string) {
   return {
@@ -20,6 +30,34 @@ export function createTools(storage: Storage, projectDir: string) {
         const fullPath = path.join(projectDir, filePath);
         if (!fs.existsSync(fullPath)) return `File not found: ${filePath}`;
         return fs.readFileSync(fullPath, 'utf-8');
+      },
+    },
+    editFile: {
+      description: 'Edit an existing file by replacing a specific string',
+      inputSchema: z.object({
+        path: z.string(),
+        oldString: z.string(),
+        newString: z.string(),
+        reasoning: z.string()
+      }),
+      execute: async ({ path: filePath, oldString, newString }) => {
+        onToolCall(storage);
+        const fullPath = path.join(projectDir, filePath);
+        if (!fs.existsSync(fullPath)) return `File not found: ${filePath}`;
+        
+        const content = fs.readFileSync(fullPath, 'utf-8');
+        if (!content.includes(oldString)) {
+          return `Error: oldString not found in file.`;
+        }
+        
+        const count = content.split(oldString).length - 1;
+        if (count > 1) {
+          return `Error: oldString found ${count} times.`;
+        }
+        
+        const newContent = content.replace(oldString, newString);
+        fs.writeFileSync(fullPath, newContent);
+        return `Successfully updated ${filePath}`;
       },
     },
     writeFile: {
@@ -50,10 +88,10 @@ export function createTools(storage: Storage, projectDir: string) {
       execute: async ({ command }) => {
         onToolCall(storage);
         try {
-          const result = execSync(command, { cwd: projectDir, encoding: 'utf-8', timeout: 30000 });
-          return result || '(no output)';
+          const { stdout, stderr } = await execAsync(command, { cwd: projectDir });
+          return `Command executed.\n\nSTDOUT:\n${stdout.substring(0, 2000)}\n\nSTDERR:\n${stderr.substring(0, 2000)}`;
         } catch (e: any) {
-          return `Error: ${e.message}`;
+          return `Command failed with exit code ${e.code}.\n\nSTDOUT:\n${e.stdout?.substring(0, 2000)}\n\nSTDERR:\n${e.stderr?.substring(0, 2000)}\n\nError Message: ${e.message}`;
         }
       },
     },
@@ -62,7 +100,7 @@ export function createTools(storage: Storage, projectDir: string) {
       inputSchema: z.object({ query: z.string() }),
       execute: async ({ query }) => {
         onToolCall(storage);
-        return `Search results for "${query}" — (implement with your preferred search API)`;
+        return `Search results for "${query}"`;
       },
     },
   };

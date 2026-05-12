@@ -38,9 +38,41 @@ export function App({ storage }: AppProps) {
       const currentIdx = modes.indexOf(mode);
       const nextMode = modes[(currentIdx + 1) % modes.length];
       setMode(nextMode);
+      
+      const modeMessages: Record<string, string> = {
+        agent: ' Agent Mode: I will write code and execute tools automatically.',
+        chat: ' Chat Mode: I will only talk and answer questions. No file edits.',
+        plan: ' Plan Mode: I will break down your request into a step-by-step checklist.'
+      };
+      
       pushEvent('system', `Switched to ${nextMode} mode`);
+      setMessages(prev => [...prev, { role: 'system', content: modeMessages[nextMode] }]);
     }
   });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
   const handleSubmit = useCallback(async (value: string) => {
     if (!value.trim()) return;
@@ -84,19 +116,23 @@ export function App({ storage }: AppProps) {
       }));
 
       let fullResponse = '';
+      setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
+
       for await (const chunk of runAgent(storage, aiMessages, process.cwd(), mode)) {
         fullResponse += chunk;
+        setMessages(prev => {
+          const newMessages = [...prev];
+          newMessages[newMessages.length - 1] = { role: 'assistant', content: fullResponse };
+          return newMessages;
+        });
       }
-
-      const assistantMsg: Message = { role: 'assistant', content: fullResponse };
-      setMessages(prev => [...prev, assistantMsg]);
 
       const newState = addXP(storage, 1, 'ai_message');
       pushEvent('xp', '+1 XP for chatting with Quak');
       checkAchievements(storage, newState);
       setState(storage.loadState());
     } catch (e: any) {
-      const errorMsg: Message = { role: 'system', content: `❌ Error: ${e.message}` };
+      const errorMsg: Message = { role: 'system', content: ` Error: ${e.message}` };
       setMessages(prev => [...prev, errorMsg]);
     } finally {
       setIsLoading(false);
@@ -109,7 +145,6 @@ export function App({ storage }: AppProps) {
     <Box flexDirection="column" height="100%" padding={1}>
       <TopHeader state={state} mood={mood} provider={provider} />
 
-      {/* Main chat area */}
       <Box flexDirection="column" flexGrow={1} marginY={1}>
         {visibleMessages.map((msg, i) => (
           <ChatMessage key={i} role={msg.role} content={msg.content} />
@@ -117,13 +152,11 @@ export function App({ storage }: AppProps) {
         {isLoading && <Text color="yellow"> Quak is thinking...</Text>}
       </Box>
 
-      {/* Input area */}
       <Box borderTopStyle="single" borderTopColor="red" borderBottomColor="red" borderBottomStyle="single" borderLeftStyle="none" borderRightStyle="none" paddingTop={1} paddingBottom={1}>
         <Text color="red">{'> '} </Text>
         <TextInput value={input} onChange={setInput} onSubmit={handleSubmit} placeholder="ask quak anything..." dimPlaceholder />
       </Box>
 
-      {/* Bottom status bar */}
       <StatusBar mode={mode} state={state} provider={provider} />
     </Box>
   );

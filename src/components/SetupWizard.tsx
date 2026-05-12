@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Box, Text } from 'ink';
 import TextInput from 'ink-text-input';
+
 import { Storage, QuakState } from '../storage.js';
 import { pushEvent } from '../current.js';
 import { renderDuck } from '../duck.js';
@@ -70,8 +71,8 @@ export function SetupWizard({ storage }: SetupWizardProps) {
 
       {step === 2 && (
         <Box flexDirection="column" marginTop={1}>
-          <Text color="green">✅ Name: {name}</Text>
-          {github && <Text color="green">✅ GitHub: {github}</Text>}
+          <Text color="green"> Name: {name}</Text>
+          {github && <Text color="green"> GitHub: {github}</Text>}
           <Text marginTop={1}>Press Enter to hatch Quak!</Text>
           <TextInput value="" onChange={() => {}} onSubmit={handleDone} />
         </Box>

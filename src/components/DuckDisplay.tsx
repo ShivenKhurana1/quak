@@ -33,7 +33,7 @@ export function DuckDisplay({ state, mood }: DuckDisplayProps) {
         </Box>
         <Box flexDirection="row" gap={2}>
           <Text color="cyan">Bread</Text>
-          <Text>🍞 {state.bread}</Text>
+          <Text> {state.bread}</Text>
         </Box>
         <Box flexDirection="row" gap={2}>
           <Text color="cyan">Hunger</Text>

@@ -20,12 +20,12 @@ export function formatCurrent(count: number = 5): string {
   const recent = getRecentEvents(count);
   const icons: Record<CurrentEvent['type'], string> = {
     xp: '⭐',
-    bread: '🍞',
-    pond: '🌊',
+    bread: '',
+    pond: '',
     tool: '🔧',
     levelup: '🎉',
     achievement: '🏆',
-    mood: '🦆',
+    mood: '',
     system: '💬',
   };
   return recent.map(e => {

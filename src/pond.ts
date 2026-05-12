@@ -75,7 +75,7 @@ export function calculatePondHealth(projectDir: string): PondHealthReport {
 
   try {
     execSync('npm test 2>/dev/null', { cwd: projectDir, timeout: 60000, encoding: 'utf-8' });
-    details.push('All tests passing ✅');
+    details.push('All tests passing ');
   } catch (e: any) {
     testFailures = 1;
     score -= 10;
@@ -88,9 +88,9 @@ export function calculatePondHealth(projectDir: string): PondHealthReport {
 }
 
 export function getPondLabel(score: number): { label: string; color: string } {
-  if (score >= 80) return { label: 'Crystal Clear 🌊', color: 'cyan' };
-  if (score >= 60) return { label: 'A Bit Murky 🌫️', color: 'yellow' };
+  if (score >= 80) return { label: 'Crystal Clear ', color: 'cyan' };
+  if (score >= 60) return { label: 'A Bit Murky ', color: 'yellow' };
   if (score >= 40) return { label: 'Swampy 🐸', color: 'red' };
-  if (score >= 20) return { label: 'Toxic 💀', color: 'magenta' };
+  if (score >= 20) return { label: 'Toxic ', color: 'magenta' };
   return { label: 'Dead Pond 🪦', color: 'gray' };
 }

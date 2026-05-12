@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import React from 'react';
 import { render } from 'ink';
-import { App } from './App.js';
+import { App } from './app.js';
 import { Storage } from './storage.js';
 import { SetupWizard } from './components/SetupWizard.js';
 

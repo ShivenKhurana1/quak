@@ -18,12 +18,12 @@ export function getMoodFromHunger(state: QuakState): DuckMood {
 export function feedQuak(storage: Storage): { success: boolean; message: string; state: QuakState } {
   const state = storage.loadState();
   if (state.bread < 1) {
-    return { success: false, message: 'No bread! Earn more by coding 🍞', state };
+    return { success: false, message: 'No bread! Earn more by coding', state };
   }
   state.bread -= 1;
   state.lastFed = Date.now();
   storage.saveState(state);
-  return { success: true, message: 'Quak ate the bread! 🍞😊 QUAK!', state };
+  return { success: true, message: 'Quak ate the bread! QUAK!', state };
 }
 
 export function earnBread(storage: Storage, amount: number): QuakState {
