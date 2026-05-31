@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { Storage } from './storage.js';
+import { asciiBar } from './utils/ascii.js';
 
 export interface ProjectRecord {
   path: string;
@@ -39,8 +40,8 @@ export function formatMigration(storage: Storage): string {
 
   return projects.map(p => {
     const daysSince = Math.floor((Date.now() - p.lastVisit) / (1000 * 60 * 60 * 24));
-    const healthBar = '█'.repeat(Math.floor(p.pondHealth / 10)) + '░'.repeat(10 - Math.floor(p.pondHealth / 10));
-    const warning = daysSince > 7 ? ' ⚠️ neglected!' : '';
-    return ` ${p.name} — Health: [${healthBar}] ${p.pondHealth}% — ${daysSince}d ago${warning}`;
+    const healthBar = asciiBar(p.pondHealth);
+    const warning = daysSince > 7 ? ' [neglected]' : '';
+    return ` ${p.name} - Health: [${healthBar}] ${p.pondHealth}% - ${daysSince}d ago${warning}`;
   }).join('\n');
 }

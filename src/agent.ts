@@ -1,141 +1,202 @@
-import { streamText } from 'ai';
+import { streamText, stepCountIs, type ToolSet, type LanguageModelUsage } from 'ai';
 import { z } from 'zod';
 import { Storage } from './storage.js';
 import { getLLM } from './providers.js';
-import { addXP } from './xp.js';
-import { earnBread } from './bread.js';
-import { checkAchievements } from './achievements.js';
-import { getDuckSystemPrompt } from './duck.js';
-import fs from 'fs';
-import path from 'path';
-import { exec } from 'child_process';
-import util from 'util';
-import { search } from 'duck-duck-scrape';
+import { buildSystemPrompt } from './systemPrompt.js';
+import { thinkTool } from './tools/think.js';
+import { createTools } from './tools/index.ts';
+import { createPlanTool } from './tools/plan.js';
+import { spawnSubAgent } from './subagent.js';
+import { ToolWorkflow } from './tools/workflow.js';
+import { screenshotTool } from './tools/screenshot.js';
+import { loadMcpTools } from './mcpTools.js';
+import {
+  clearToolActivity,
+  finishToolActivity,
+  pushSubAgentChunk,
+  startToolActivity,
+} from './agentEvents.js';
+import { recordCost, formatSessionCost, resetSessionCost } from './costTracker.js';
+import { searchMemory, addToMemory, loadIndex } from './vectorMemory.js';
+import { fileWatcher } from './watcher.js';
 
-const execAsync = util.promisify(exec);
-
-
-
-
-
-
-
-export function createTools(storage: Storage, projectDir: string) {
-  return {
-    readFile: {
-      description: 'Read a file from the project',
-      inputSchema: z.object({ path: z.string() }),
-      execute: async ({ path: filePath }) => {
-        onToolCall(storage);
-        const fullPath = path.join(projectDir, filePath);
-        if (!fs.existsSync(fullPath)) return `File not found: ${filePath}`;
-        return fs.readFileSync(fullPath, 'utf-8');
-      },
-    },
-    editFile: {
-      description: 'Edit an existing file by replacing a specific string',
-      inputSchema: z.object({
-        path: z.string(),
-        oldString: z.string(),
-        newString: z.string(),
-        reasoning: z.string()
-      }),
-      execute: async ({ path: filePath, oldString, newString }) => {
-        onToolCall(storage);
-        const fullPath = path.join(projectDir, filePath);
-        if (!fs.existsSync(fullPath)) return `File not found: ${filePath}`;
-        
-        const content = fs.readFileSync(fullPath, 'utf-8');
-        if (!content.includes(oldString)) {
-          return `Error: oldString not found in file.`;
-        }
-        
-        const count = content.split(oldString).length - 1;
-        if (count > 1) {
-          return `Error: oldString found ${count} times.`;
-        }
-        
-        const newContent = content.replace(oldString, newString);
-        fs.writeFileSync(fullPath, newContent);
-        return `Successfully updated ${filePath}`;
-      },
-    },
-    writeFile: {
-      description: 'Write content to a file in the project',
-      inputSchema: z.object({ path: z.string(), content: z.string() }),
-      execute: async ({ path: filePath, content }) => {
-        onToolCall(storage);
-        const fullPath = path.join(projectDir, filePath);
-        fs.mkdirSync(path.dirname(fullPath), { recursive: true });
-        fs.writeFileSync(fullPath, content);
-        return `Wrote ${content.length} chars to ${filePath}`;
-      },
-    },
-    listFiles: {
-      description: 'List files in a directory',
-      inputSchema: z.object({ path: z.string().default('.'), recursive: z.boolean().default(false) }),
-      execute: async ({ path: dirPath, recursive }) => {
-        onToolCall(storage);
-        const fullPath = path.join(projectDir, dirPath);
-        if (!fs.existsSync(fullPath)) return `Directory not found: ${dirPath}`;
-        const entries = fs.readdirSync(fullPath, { withFileTypes: true, recursive });
-        return entries.map(e => `${e.isDirectory() ? '📁' : '📄'} ${e.name}`).join('\n');
-      },
-    },
-    runCommand: {
-      description: 'Run a shell command',
-      inputSchema: z.object({ command: z.string() }),
-      execute: async ({ command }) => {
-        onToolCall(storage);
-        try {
-          const { stdout, stderr } = await execAsync(command, { cwd: projectDir });
-          return `Command executed.\n\nSTDOUT:\n${stdout.substring(0, 2000)}\n\nSTDERR:\n${stderr.substring(0, 2000)}`;
-        } catch (e: any) {
-          return `Command failed with exit code ${e.code}.\n\nSTDOUT:\n${e.stdout?.substring(0, 2000)}\n\nSTDERR:\n${e.stderr?.substring(0, 2000)}\n\nError Message: ${e.message}`;
-        }
-      },
-    },
-    searchWeb: {
-      description: 'Search the web for information',
-      inputSchema: z.object({ query: z.string() }),
-      execute: async ({ query }) => {
-        onToolCall(storage);
-        return `Search results for "${query}"`;
-      },
-    },
-  };
+export interface Message {
+  role: 'user' | 'assistant' | 'system';
+  content: string;
 }
 
-function onToolCall(storage: Storage) {
-  const state = addXP(storage, 1, 'tool_call');
-  earnBread(storage, 1);
-  checkAchievements(storage, state);
+interface AgentOptions {
+  storage: Storage;
+  projectDir: string;
+  messages: Message[];
+  mode: 'agent' | 'chat' | 'plan' | 'dontAsk';
+  sessionId: string;
+  abortSignal?: AbortSignal;
+  allowSubAgents?: boolean;
+  maxStepsOverride?: number;
 }
 
-export async function* runAgent(
-  storage: Storage,
-  messages: any[],
-  projectDir: string,
-  mode: 'agent' | 'chat' | 'plan' = 'agent'
-) {
-  const state = storage.loadState();
-  const systemPrompt = getDuckSystemPrompt(state.level);
-  const memory = storage.loadMemory();
-  const fullSystem = `${systemPrompt}\n\nYou are Quak, a duck that lives in the terminal.\nProject directory: ${projectDir}\n\nUser memory:\n${memory}\n\nMode: ${mode}. ${mode === 'chat' ? 'Read-only. Do NOT modify files. Only answer questions.' : mode === 'plan' ? 'Plan mode. Outline what you would do but do NOT execute.' : 'Full agent mode. You can read, write, and run commands.'}`;
+const CYAN = '\x1b[36m';
+const RESET = '\x1b[0m';
 
-  const tools = mode === 'agent' ? createTools(storage, projectDir) : {};
+const CHAT_TOOLS = new Set([
+  'ThinkTool', 'readFile', 'listFiles', 'glob', 'grep', 'searchFiles', 'fetchUrl', 'readLints',
+]);
 
-  const model = getLLM(storage);
+const PLAN_TOOLS = new Set([
+  'ThinkTool', 'readFile', 'listFiles', 'glob', 'grep', 'searchFiles', 'createPlan', 'fetchUrl', 'executePlanStep',
+]);
 
-  const result = streamText({
-    model,
-    system: fullSystem,
+function toolTarget(input: Record<string, unknown>): string | undefined {
+  const v = input.path ?? input.command ?? input.url ?? input.from ?? input.query;
+  return typeof v === 'string' ? v : undefined;
+}
+
+function filterTools(
+  tools: Record<string, unknown>,
+  mode: AgentOptions['mode'],
+  allowSubAgents: boolean,
+): Record<string, unknown> {
+  const allowed = mode === 'chat' ? CHAT_TOOLS : mode === 'plan' ? PLAN_TOOLS : null;
+  const out: Record<string, unknown> = {};
+  for (const [name, tool] of Object.entries(tools)) {
+    if (name === 'SubAgentTool' && !allowSubAgents) continue;
+    if (allowed && !allowed.has(name)) continue;
+    out[name] = tool;
+  }
+  return out;
+}
+
+export async function* runAgent(options: AgentOptions): AsyncGenerator<string> {
+  const {
+    storage,
+    projectDir,
     messages,
-    tools,
-    maxSteps: mode === 'agent' ? 10 : 1,
+    mode,
+    sessionId,
+    abortSignal,
+    allowSubAgents = true,
+    maxStepsOverride,
+  } = options;
+
+  const llm = getLLM(storage);
+  const agentSettings = storage.loadAgentSettings();
+  const maxSteps = maxStepsOverride ?? agentSettings.maxSteps;
+  const workflow = new ToolWorkflow();
+
+  clearToolActivity();
+  resetSessionCost();
+  loadIndex();
+
+  const promptId = `agent-${Date.now()}`;
+  const baseTools = await createTools(storage, projectDir, storage.loadPermissions(), sessionId, 'main', workflow);
+  const mcpTools = await loadMcpTools();
+  const allTools: Record<string, unknown> = {
+    ThinkTool: thinkTool,
+    ...baseTools,
+    createPlan: createPlanTool(sessionId),
+    screenshot: screenshotTool,
+  };
+  if (allowSubAgents && (mode === 'agent' || mode === 'dontAsk')) {
+    allTools.SubAgentTool = {
+      description: 'Delegate a focused task to a specialized sub-agent',
+      inputSchema: z.object({
+        expertise: z.enum(['bug-fix', 'refactor', 'test', 'plan']),
+        task: z.string(),
+        context: z.string().optional(),
+      }),
+      execute: async ({ expertise, task, context }: { expertise: string; task: string; context?: string }) => {
+        const tail = messages
+          .slice(-4)
+          .map((m) => `${m.role}: ${m.content.slice(0, 300)}`)
+          .join('\n');
+        let result = '';
+        for await (const chunk of spawnSubAgent(
+          storage,
+          projectDir,
+          {
+            expertise: expertise as 'bug-fix' | 'refactor' | 'test' | 'plan',
+            task,
+            context,
+            parentTranscriptTail: tail,
+          },
+          sessionId,
+        )) {
+          pushSubAgentChunk(expertise, chunk);
+          result += chunk;
+        }
+        return `Sub-agent (${expertise}) completed:\n${result}`;
+      },
+    };
+  }
+
+  const toolsForCall = filterTools(allTools, mode, allowSubAgents);
+  const recentChanges = fileWatcher.getRecentChanges(30000);
+  const memoryHints = searchMemory(messages.map(m => m.content).join(' '), 3);
+  const systemPrompt = await buildSystemPrompt({
+    mode, storage, projectDir,
+    memoryHints,
+    recentChanges: recentChanges.map(c => `[${c.type}] ${c.path}`),
   });
 
-  for await (const chunk of result.textStream) {
-    yield chunk;
+  const response = await streamText({
+    model: llm,
+    system: systemPrompt,
+    messages: messages.map((m) => {
+      if (m.role !== 'user') return { role: m.role as 'user' | 'assistant' | 'system', content: m.content };
+      if (m.content.startsWith('data:image')) {
+        return { role: 'user' as const, content: [{ type: 'image' as const, image: m.content }] };
+      }
+      return { role: 'user' as const, content: m.content };
+    }),
+    tools: toolsForCall as ToolSet,
+    stopWhen: stepCountIs(maxSteps),
+    maxRetries: 2,
+    abortSignal,
+  });
+
+  let toolStepCount = 0;
+  const stepNotes: string[] = [];
+  let finishUsage: LanguageModelUsage | null = null;
+
+  for await (const event of response.fullStream) {
+    if (event.type === 'text-delta') {
+      yield event.text;
+    } else if (event.type === 'tool-call') {
+      toolStepCount++;
+      const input =
+        'input' in event && event.input && typeof event.input === 'object'
+          ? (event.input as Record<string, unknown>)
+          : {};
+      startToolActivity(event.toolName, toolTarget(input));
+      yield `\n${CYAN}[tool] ${event.toolName}${RESET}\n`;
+    } else if (event.type === 'tool-result') {
+      const resultText = typeof event.output === 'string' ? event.output : String(event.output);
+      stepNotes.push(`${event.toolName}: ${resultText.slice(0, 120)}`);
+      finishToolActivity(event.toolName, { preview: resultText, ok: !resultText.startsWith('Error:') });
+      const preview = resultText.length > 200 ? resultText.slice(0, 200) + '...' : resultText;
+      yield `${CYAN}${preview}${RESET}\n`;
+    } else if (event.type === 'finish') {
+      finishUsage = event.totalUsage ?? null;
+      if (toolStepCount >= maxSteps) {
+        const progress = stepNotes.slice(-10).join('\n');
+        yield `\n${CYAN}Reached ${maxSteps} tool steps.\nProgress:\n${progress}\nSend "continue" to resume.${RESET}\n`;
+      }
+    }
+  }
+
+  if (finishUsage) {
+    const provider = storage.getActiveProvider();
+    recordCost(
+      provider?.model ?? 'unknown',
+      provider?.type ?? 'unknown',
+      finishUsage.inputTokens ?? 0,
+      finishUsage.outputTokens ?? 0,
+    );
+    const tokens = finishUsage.inputTokens ?? 0;
+    addToMemory(
+      messages.slice(-1)[0]?.content ?? '',
+      `conversation (${tokens} prompt tokens)`,
+    );
   }
 }

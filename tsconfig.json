@@ -12,6 +12,7 @@
     "declaration": true,
     "resolveJsonModule": true,
     "allowImportingTsExtensions": true,
+    "types": ["node"],
     "noEmit": true
   },
   "include": ["src"]

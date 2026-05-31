@@ -52,14 +52,14 @@ export function addXP(storage: Storage, amount: number, reason: string): QuakSta
 
 export function getUnlocksForLevel(level: number): string[] {
   const unlocks: string[] = [];
-  if (level >= 3) unlocks.push('/quack — Quak quacks at your code');
-  if (level >= 4) unlocks.push('/genz — you don\'t want to know');
-  if (level >= 5) unlocks.push('/vibe — vibe check on your project');
-  if (level >= 6) unlocks.push('/swim — rubber duck debug mode');
-  if (level >= 7) unlocks.push('/pond — detailed pond health breakdown');
-  if (level >= 8) unlocks.push('/migrate — project switching and map');
-  if (level >= 10) unlocks.push('/crimes — Quak files a rap sheet on your code');
-  if (level >= 10) unlocks.push('/dive — deep analysis of a file');
-  if (level >= 12) unlocks.push('/clean — Quak tidies the pond');
+  if (level >= 3) unlocks.push('/quack - Quak quacks at your code');
+  if (level >= 4) unlocks.push('/genz - you don\'t want to know');
+  if (level >= 5) unlocks.push('/vibe - vibe check on your project');
+  if (level >= 6) unlocks.push('/swim - rubber duck debug mode');
+  if (level >= 7) unlocks.push('/pond - detailed pond health breakdown');
+  if (level >= 8) unlocks.push('/migrate - project switching and map');
+  if (level >= 10) unlocks.push('/crimes - Quak files a rap sheet on your code');
+  if (level >= 10) unlocks.push('/dive - deep analysis of a file');
+  if (level >= 12) unlocks.push('/clean - Quak tidies the pond');
   return unlocks;
 }

@@ -1,7 +1,9 @@
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-
+import type { PermissionSettings } from './permissions.js';
+import { stripEmoji } from './utils/ascii.js';
+const STATE_VERSION = 2;
 const QUAK_DIR = path.join(os.homedir(), '.quak');
 const STATE_FILE = path.join(QUAK_DIR, 'state.json');
 const PROVIDERS_FILE = path.join(QUAK_DIR, 'providers.json');
@@ -9,7 +11,7 @@ const ACHIEVEMENTS_FILE = path.join(QUAK_DIR, 'achievements.json');
 const MEMORY_DIR = path.join(QUAK_DIR, 'memory');
 const MEMORY_FILE = path.join(MEMORY_DIR, 'MEMORY.md');
 const PROJECTS_DIR = path.join(QUAK_DIR, 'projects');
-
+const SETTINGS_FILE = path.join(QUAK_DIR, 'settings.json');
 export interface QuakState {
   name: string;
   github?: string;
@@ -23,11 +25,12 @@ export interface QuakState {
   totalToolCalls: number;
   currentProject?: string;
   createdAt: number;
+  version?: number;
 }
 
 export interface ProviderConfig {
   name: string;
-  type: 'openai' | 'anthropic' | 'groq' | 'ollama';
+  type: 'openai' | 'anthropic' | 'groq' | 'ollama' | 'huggingface';
   apiKey?: string;
   baseUrl?: string;
   model: string;
@@ -41,17 +44,54 @@ export interface Achievement {
   unlockedAt?: number;
   reward: number;
 }
-
+export interface QuakSettings {
+  permissions: {
+    mode: 'default' | 'acceptEdits' | 'plan' | 'dontAsk' | 'bypassPermissions';
+    allow: { pattern: string }[];
+    ask: { pattern: string }[];
+    deny: { pattern: string }[];
+  };
+  notifications: {
+    preferredChannel: 'auto' | 'terminal_bell' | 'notifications_disabled';
+  };
+  statusLine: {
+    enabled: boolean;
+  };
+  agent: {
+    maxSteps: number;
+    maxHistoryMessages: number;
+    maxHistoryTokens: number;
+    subAgentMaxSteps: number;
+    lintOnEdit: boolean;
+    fastProvider?: string;
+  };
+  shell?: {
+    defaultTimeoutMs: number;
+    backgroundWaitMs: number;
+    installTimeoutMs: number;
+  };
+}
+function migrateState(state: any): QuakState {
+  const currentVersion = state.version ?? 1;
+  if (currentVersion >= STATE_VERSION) return state as QuakState;
+  let migrated = { ...state };
+  if (currentVersion < 2) {
+    if (!migrated.streak) migrated.streak = 0;
+    if (!migrated.lastStreakDate) migrated.lastStreakDate = '';
+    if (!migrated.totalToolCalls) migrated.totalToolCalls = 0;
+  }
+  migrated.version = STATE_VERSION;
+  return migrated;
+}
 export class Storage {
-  exists(): boolean {
-    return fs.existsSync(STATE_FILE);
+  loadState(): QuakState {
+    if (!fs.existsSync(STATE_FILE)) return this.defaultState();
+    const raw = JSON.parse(fs.readFileSync(STATE_FILE, 'utf-8'));
+    return migrateState(raw);
   }
 
-  loadState(): QuakState {
-    if (!fs.existsSync(STATE_FILE)) {
-      return this.defaultState();
-    }
-    return JSON.parse(fs.readFileSync(STATE_FILE, 'utf-8'));
+  exists(): boolean {
+    return fs.existsSync(STATE_FILE);
   }
 
   saveState(state: QuakState): void {
@@ -78,7 +118,93 @@ export class Storage {
     if (!fs.existsSync(PROVIDERS_FILE)) return [];
     return JSON.parse(fs.readFileSync(PROVIDERS_FILE, 'utf-8'));
   }
+  loadSettings(): QuakSettings {
+    if (!fs.existsSync(SETTINGS_FILE)) return this.defaultSettings();
+    return JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf-8'));
+  }
 
+  loadPermissions(): PermissionSettings {
+    return this.loadSettings().permissions;
+  }
+
+  saveSettings(settings: QuakSettings): void {
+    this.ensureDir(QUAK_DIR);
+    fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2));
+  }
+
+  defaultSettings(): QuakSettings {
+    return {
+      permissions: {
+        mode: 'acceptEdits',
+        allow: [],
+        ask: [],
+        deny: [],
+      },
+      notifications: {
+        preferredChannel: 'auto',
+      },
+      statusLine: {
+        enabled: true,
+      },
+      agent: {
+        maxSteps: 50,
+        maxHistoryMessages: 40,
+        maxHistoryTokens: 32_000,
+        subAgentMaxSteps: 15,
+        lintOnEdit: true,
+      },
+      shell: {
+        defaultTimeoutMs: 120_000,
+        backgroundWaitMs: 12_000,
+        installTimeoutMs: 600_000,
+      },
+    };
+  }
+  loadAgentSettings(): {
+    maxSteps: number;
+    maxHistoryMessages: number;
+    maxHistoryTokens: number;
+    subAgentMaxSteps: number;
+    lintOnEdit: boolean;
+    fastProvider?: string;
+  } {
+    const s = this.loadSettings();
+    const agent = s.agent ?? {
+      maxSteps: 50,
+      maxHistoryMessages: 40,
+      maxHistoryTokens: 32_000,
+      subAgentMaxSteps: 15,
+      lintOnEdit: true,
+    };
+    return {
+      maxSteps: agent.maxSteps,
+      maxHistoryMessages: agent.maxHistoryMessages,
+      maxHistoryTokens: agent.maxHistoryTokens ?? 32_000,
+      subAgentMaxSteps: agent.subAgentMaxSteps ?? 15,
+      lintOnEdit: agent.lintOnEdit ?? true,
+      fastProvider: agent.fastProvider,
+    };
+  }
+
+  /** Active provider name (stored in state.currentProject for backward compat). */
+  getActiveProviderId(): string | undefined {
+    return this.loadState().currentProject;
+  }
+
+  loadShellSettings(): {
+    defaultTimeoutMs: number;
+    backgroundWaitMs: number;
+    installTimeoutMs: number;
+  } {
+    const s = this.loadSettings();
+    return (
+      s.shell ?? {
+        defaultTimeoutMs: 120_000,
+        backgroundWaitMs: 12_000,
+        installTimeoutMs: 600_000,
+      }
+    );
+  }
   saveProviders(providers: ProviderConfig[]): void {
     this.ensureDir(QUAK_DIR);
     fs.writeFileSync(PROVIDERS_FILE, JSON.stringify(providers, null, 2));
@@ -91,7 +217,11 @@ export class Storage {
 
   loadAchievements(): Achievement[] {
     if (!fs.existsSync(ACHIEVEMENTS_FILE)) return this.defaultAchievements();
-    return JSON.parse(fs.readFileSync(ACHIEVEMENTS_FILE, 'utf-8'));
+    const loaded = JSON.parse(fs.readFileSync(ACHIEVEMENTS_FILE, 'utf-8')) as Achievement[];
+    return loaded.map((a) => ({
+      ...a,
+      icon: stripEmoji(a.icon || '') || '*',
+    }));
   }
 
   saveAchievements(achievements: Achievement[]): void {
@@ -101,18 +231,18 @@ export class Storage {
 
   defaultAchievements(): Achievement[] {
     return [
-      { id: 'first_quack', name: 'First Quack', description: 'Run Quak for the first time', icon: '🐥', reward: 10 },
-      { id: 'daily_dabbler', name: 'Daily Dabbler', description: 'Use Quak daily', icon: '📅', reward: 5 },
-      { id: 'no_life_pond', name: 'No Life Pond', description: 'Run 100 commands', icon: '', reward: 20 },
-      { id: 'midnight_waddler', name: 'Midnight Waddler', description: 'Use Quak after midnight', icon: '🌙', reward: 15 },
-      { id: 'chronically_online', name: 'Chronically Online', description: 'Send 10 AI messages', icon: '🤖', reward: 10 },
-      { id: 'flock_leader', name: 'Flock Leader', description: '7-day streak', icon: '👑', reward: 100 },
-      { id: 'bread_giver', name: 'Bread Giver', description: 'Feed Quak', icon: '', reward: 5 },
-      { id: 'bold_duck', name: 'Bold Duck', description: 'Reach level 5', icon: '', reward: 75 },
-      { id: 'absolute_drake', name: 'Absolute Drake', description: 'Reach level 10', icon: '🪿', reward: 150 },
-      { id: 'rubber_duck_debug', name: 'Rubber Duck Debug', description: 'Use /swim 10 times', icon: '', reward: 25 },
-      { id: 'pond_cleaner', name: 'Pond Cleaner', description: 'Delete 100 lines of dead code', icon: '', reward: 30 },
-      { id: 'bug_snack', name: 'Bug Snack', description: 'Fix 25 bugs', icon: '🐛', reward: 50 },
+      { id: 'first_quack', name: 'First Quack', description: 'Run Quak for the first time', icon: '*', reward: 10 },
+      { id: 'daily_dabbler', name: 'Daily Dabbler', description: 'Use Quak daily', icon: '*', reward: 5 },
+      { id: 'no_life_pond', name: 'No Life Pond', description: 'Run 100 commands', icon: '*', reward: 20 },
+      { id: 'midnight_waddler', name: 'Midnight Waddler', description: 'Use Quak after midnight', icon: '*', reward: 15 },
+      { id: 'chronically_online', name: 'Chronically Online', description: 'Send 10 AI messages', icon: '*', reward: 10 },
+      { id: 'flock_leader', name: 'Flock Leader', description: '7-day streak', icon: '*', reward: 100 },
+      { id: 'bread_giver', name: 'Bread Giver', description: 'Feed Quak', icon: '*', reward: 5 },
+      { id: 'bold_duck', name: 'Bold Duck', description: 'Reach level 5', icon: '*', reward: 75 },
+      { id: 'absolute_drake', name: 'Absolute Drake', description: 'Reach level 10', icon: '*', reward: 150 },
+      { id: 'rubber_duck_debug', name: 'Rubber Duck Debug', description: 'Use /swim 10 times', icon: '*', reward: 25 },
+      { id: 'pond_cleaner', name: 'Pond Cleaner', description: 'Delete 100 lines of dead code', icon: '*', reward: 30 },
+      { id: 'bug_snack', name: 'Bug Snack', description: 'Fix 25 bugs', icon: '*', reward: 50 },
     ];
   }
 

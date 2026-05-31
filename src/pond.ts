@@ -69,7 +69,7 @@ export function calculatePondHealth(projectDir: string): PondHealthReport {
         cwd: projectDir,
         encoding: 'utf-8',
       }).trim().split('\n').filter(Boolean);
-      deadCode = 0; // Placeholder — real impl would use ts-morph
+      deadCode = 0; // Placeholder - real impl would use ts-morph
     }
   } catch {}
 
@@ -90,7 +90,7 @@ export function calculatePondHealth(projectDir: string): PondHealthReport {
 export function getPondLabel(score: number): { label: string; color: string } {
   if (score >= 80) return { label: 'Crystal Clear ', color: 'cyan' };
   if (score >= 60) return { label: 'A Bit Murky ', color: 'yellow' };
-  if (score >= 40) return { label: 'Swampy 🐸', color: 'red' };
-  if (score >= 20) return { label: 'Toxic ', color: 'magenta' };
-  return { label: 'Dead Pond 🪦', color: 'gray' };
+  if (score >= 40) return { label: 'Swampy', color: 'red' };
+  if (score >= 20) return { label: 'Toxic', color: 'magenta' };
+  return { label: 'Dead Pond', color: 'gray' };
 }

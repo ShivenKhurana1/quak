@@ -4,6 +4,7 @@ import { renderDuck, DuckMood } from '../duck.js';
 import { getXpProgress } from '../xp.js';
 import { getHungerLevel } from '../bread.js';
 import { QuakState } from '../storage.js';
+import { asciiBar } from '../utils/ascii.js';
 
 interface DuckDisplayProps {
   state: QuakState;
@@ -15,7 +16,7 @@ export function DuckDisplay({ state, mood }: DuckDisplayProps) {
   const progress = getXpProgress(state);
   const hunger = Math.floor(getHungerLevel(state) * 100);
 
-  const xpBar = '█'.repeat(Math.floor(progress.percent / 10)) + '░'.repeat(10 - Math.floor(progress.percent / 10));
+  const xpBar = asciiBar(progress.percent);
 
   return (
     <Box flexDirection="row" justifyContent="space-between" paddingX={1}>

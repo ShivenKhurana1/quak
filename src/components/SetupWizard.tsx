@@ -31,7 +31,7 @@ export function SetupWizard({ storage }: SetupWizardProps) {
       github: github.trim() || undefined,
     };
     storage.saveState(state);
-    pushEvent('system', `Welcome, ${name}! Quak has hatched! 🐥`);
+    pushEvent('system', `Welcome, ${name}! Quak has hatched!`);
     setDone(true);
   };
 
@@ -41,7 +41,7 @@ export function SetupWizard({ storage }: SetupWizardProps) {
     return (
       <Box flexDirection="column" padding={1}>
         <Text color="yellow" bold>{duckArt}</Text>
-        <Text color="cyan" bold>QUACK! Quak has hatched! 🐥</Text>
+        <Text color="cyan" bold>QUACK! Quak has hatched!</Text>
         <Text>Hey {name}! I'm Quak, your terminal duck buddy.</Text>
         <Text dimColor>Run /provider add to set up your AI provider, then start coding!</Text>
         <Text dimColor>Use /help to see all commands.</Text>
@@ -52,7 +52,7 @@ export function SetupWizard({ storage }: SetupWizardProps) {
   return (
     <Box flexDirection="column" padding={1}>
       <Text color="yellow" bold>{duckArt}</Text>
-      <Text color="cyan" bold>Welcome to Quak! 🐥</Text>
+      <Text color="cyan" bold>Welcome to Quak!</Text>
       <Text dimColor>Let's get you set up.</Text>
 
       {step === 0 && (
@@ -73,7 +73,9 @@ export function SetupWizard({ storage }: SetupWizardProps) {
         <Box flexDirection="column" marginTop={1}>
           <Text color="green"> Name: {name}</Text>
           {github && <Text color="green"> GitHub: {github}</Text>}
-          <Text marginTop={1}>Press Enter to hatch Quak!</Text>
+          <Box marginTop={1}>
+            <Text>Press Enter to hatch Quak!</Text>
+          </Box>
           <TextInput value="" onChange={() => {}} onSubmit={handleDone} />
         </Box>
       )}
