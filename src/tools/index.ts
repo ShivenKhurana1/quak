@@ -377,13 +377,14 @@ export async function createTools(
       },
     },
     createProject: {
-      description: 'Create a new project from a template (next, vite, react, express, blank)',
+      description: 'Scaffold a new project (next, vite, react, express, blank)',
       inputSchema: z.object({
-        template: z.string().default('blank'),
+        template: z.string(),
         projectName: z.string().default('my-app'),
         useTypeScript: z.boolean().default(true),
-        useTailwind: z.boolean().default(true),
+        useTailwind: z.boolean().default(false),
         useAppRouter: z.boolean().default(true),
+        extraFlags: z.array(z.string()).optional().describe('Extra CLI flags like --turbopack'),
         reasoning: z.string(),
       }),
       execute: async ({
@@ -392,65 +393,62 @@ export async function createTools(
         useTypeScript,
         useTailwind,
         useAppRouter,
+        extraFlags,
       }: {
         template: string;
         projectName: string;
         useTypeScript: boolean;
         useTailwind: boolean;
         useAppRouter: boolean;
+        extraFlags?: string[];
       }): Promise<string> => {
-        touchTool('createProject');
+        touchTool('runCommand');
         const blocked = await checkGuard(guard, 'runCommand');
-        if (blocked) {
-          return blocked;
-        }
+        if (blocked) return blocked;
 
-        const t = template.toLowerCase();
-        let command = '';
+        const t = template.toLowerCase().replace(/\.js$/, '').replace(/\./g, '');
+        const ts = useTypeScript ? '--typescript' : '';
+        let cmd = '';
 
-        if (t === 'next' || t === 'nextjs' || t === 'next.js') {
-          const parts = [
-            `npx create-next-app@latest ${projectName}`,
-            '--yes',
-            useTypeScript ? '--ts' : '--js',
-            useTailwind ? '--tailwind' : '--no-tailwind',
-            useAppRouter ? '--app' : '--no-app',
+        if (t === 'next' || t === 'nextjs' || t === 'next app') {
+          cmd = [
+            'npx', '--yes', 'create-next-app@latest', projectName,
+            '--use-npm',
+            ts,
+            useTailwind ? '--tailwind' : '',
+            useAppRouter ? '--app' : '',
+            '--no-src-dir',
             '--eslint',
-          ];
-          command = parts.join(' ');
+            '--no-turbopack',
+            ...(extraFlags ?? []),
+          ].filter(Boolean).join(' ');
         } else if (t === 'vite' || t === 'vitejs') {
-          const templateSpecifier = useTypeScript ? 'react-ts' : 'react';
-          command = `npm create vite@latest ${projectName} -- --template ${templateSpecifier}`;
-        } else if (t === 'react' || t === 'cra' || t === 'create-react-app') {
-          command = `npx create-react-app ${projectName} ${useTypeScript ? '--template typescript' : ''}`.trim();
+          cmd = `npm create vite@latest ${projectName} -- --template ${useTypeScript ? 'react-ts' : 'react'}`;
+        } else if (t === 'react' || t === 'cra') {
+          cmd = `npx --yes create-react-app ${projectName}${useTypeScript ? ' --template typescript' : ''}`;
         } else if (t === 'express') {
-          command = `mkdir ${projectName} && cd ${projectName} && npm init -y && npm install express`;
+          cmd = `mkdir -p ${projectName} && cd ${projectName} && npm init -y && npm install express${useTypeScript ? ' typescript @types/node @types/express ts-node' : ''}`;
         } else if (t === 'blank') {
-          command = `mkdir ${projectName} && cd ${projectName} && npm init -y`;
+          cmd = `mkdir -p ${projectName} && cd ${projectName} && npm init -y`;
         } else {
-          return `Error: Unknown template '${template}'. Supported: next, vite, react, express, blank`;
+          return `Unknown template "${template}". Common options: next, vite, react, express, blank`;
         }
 
-        const result = await runShellCommand(command, projectRoot, {
+        const result = await runShellCommand(cmd, projectRoot, {
+          background: false,
           timeoutMs: shellSettings.installTimeoutMs,
+          backgroundWaitMs: shellSettings.backgroundWaitMs,
         });
 
         const projectPath = path.join(projectRoot, projectName);
-        if (!fs.existsSync(projectPath)) return result;
-
-        let entries: string[] = [];
-        try {
-          entries = fs.readdirSync(projectPath);
-        } catch {
-          return result;
+        if (!fs.existsSync(projectPath)) {
+          return `Command: ${cmd}\n\n${result}\n\nProject "${projectName}" was not created.`;
         }
 
-        const configHint =
-          t === 'next' || t === 'nextjs' || t === 'next.js'
-            ? `Config file is likely ${projectName}/next.config.ts (not .js). App dir: ${projectName}/app/`
-            : `Project root: ${projectName}/`;
+        let entries: string[] = [];
+        try { entries = fs.readdirSync(projectPath); } catch { entries = []; }
 
-        return `${result}\n\nScaffolded ${projectName}/\nTop-level: ${entries.join(', ')}\n${configHint}\nList files with listFiles on ${projectName}/ before editing.`;
+        return `Command: ${cmd}\n\n${result}\n\nScaffolded ${projectName}/\nTop-level: ${entries.join(', ')}`;
       },
     },
     searchWeb: {

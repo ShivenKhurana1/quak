@@ -43,5 +43,13 @@ export async function buildSystemPrompt(options: SystemPromptOptions): Promise<s
   const mcp = loadMcpPrompt();
   if (mcp) sections.push(mcp);
 
+  if (mode === 'chat') {
+    sections.push('# Guidelines\nYou are in chat mode. Answer questions conversationally. Do not call any tools unless explicitly asked.');
+  } else if (mode === 'agent' || mode === 'dontAsk') {
+    sections.push('# Guidelines\nYou are an AI coding assistant with access to tools. You should use tools as needed to satisfy the user\'s request, whether it is a question, a task, or a command.');
+  } else if (mode === 'plan') {
+    sections.push('# Guidelines\nYou are in planning mode. Use planning tools to create and manage plans. Do not execute arbitrary tools.');
+  }
+
   return sections.join('\n\n');
 }

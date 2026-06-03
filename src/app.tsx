@@ -87,15 +87,6 @@ export function App({ storage }: AppProps) {
     };
   }, []);
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (messages.length > 0) {
-        persistSession(sessionIdRef.current, messages);
-      }
-    }, 30000);
-    return () => clearInterval(interval);
-  }, [messages]);
-
   useEffect(() => subscribeCommandStatus(() => bumpCommandStatus()), []);
 
   useEffect(
@@ -196,21 +187,9 @@ export function App({ storage }: AppProps) {
         '  Ctrl+T    — Cycle modes (agent/chat/plan/dontAsk)',
         '  Ctrl+C    — Cancel running agent',
         '  Ctrl+H/?  — Show this help',
-        '  Ctrl+S    — Save session now',
-        '  Ctrl+E    — Show eval commands',
-        '  Ctrl+L    - Run linter on current file',
         '  Y/N/Esc   — Answer permission prompts',
         '  Up/Down   — Cycle input history (not yet implemented)',
       ].join('\n'));
-      return;
-    }
-    if (key.ctrl && inputChar === 's') {
-      persistSession(sessionIdRef.current, messages);
-      pushEvent('system', 'Session saved');
-      return;
-    }
-    if (key.ctrl && inputChar === 'e') {
-      pushEvent('system', '/eval list — list cases. /eval run <id> — run case.');
       return;
     }
     if (key.ctrl && inputChar === 't') {
@@ -222,6 +201,7 @@ export function App({ storage }: AppProps) {
         agent: 'Agent Mode: I have full access to tools and will execute actions.',
         chat: 'Chat Mode: I will answer questions and explain code only.',
         plan: 'Plan Mode: I will break this into a strategic plan.',
+        dontAsk: 'DontAsk Mode: I will execute actions but won\'t ask for permission.',
       };
       setMessages((prev) => [...prev, { role: 'system', content: modeMessages[nextMode] }]);
     }
@@ -241,7 +221,7 @@ export function App({ storage }: AppProps) {
         const args = parts.slice(1).join(' ');
 
         if (cmd === '/mode' && ['agent', 'chat', 'plan', 'dontAsk'].includes(args)) {
-          applyUiMode(args as 'agent' | 'chat' | 'plan');
+          applyUiMode(args as 'agent' | 'chat' | 'plan' | 'dontAsk');
           setMessages((prev) => [
             ...prev,
             { role: 'system', content: `Switched to ${args} mode` },

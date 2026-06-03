@@ -20,7 +20,7 @@ export function AgentActivity({ runState, runNote, tools, progress, eta }: Agent
   const phase = runState === 'thinking' ? 'Thinking' : runState === 'running' ? 'Running' : 'Error';
   const recent = tools.slice(-6);
 
-  const progressTracker = progress ? new ProgressTracker(progress.total) : null;
+  const progressTracker = progress && progress.total > 0 ? new ProgressTracker(progress.total) : null;
   const progressInfo = progressTracker?.getProgress();
 
   return (

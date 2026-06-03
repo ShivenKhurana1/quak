@@ -97,6 +97,9 @@ export async function* runAgent(options: AgentOptions): AsyncGenerator<string> {
     createPlan: createPlanTool(sessionId),
     screenshot: screenshotTool,
   };
+  for (const t of mcpTools) {
+    allTools[t.name] = { description: t.description, inputSchema: t.inputSchema, execute: t.execute };
+  }
   if (allowSubAgents && (mode === 'agent' || mode === 'dontAsk')) {
     allTools.SubAgentTool = {
       description: 'Delegate a focused task to a specialized sub-agent',
@@ -139,61 +142,83 @@ export async function* runAgent(options: AgentOptions): AsyncGenerator<string> {
     recentChanges: recentChanges.map(c => `[${c.type}] ${c.path}`),
   });
 
-  const response = await streamText({
-    model: llm,
-    system: systemPrompt,
-    messages: messages.map((m) => {
+  const prepareMessages = () =>
+    messages.map((m) => {
       if (m.role !== 'user') return { role: m.role as 'user' | 'assistant' | 'system', content: m.content };
       if (m.content.startsWith('data:image')) {
         return { role: 'user' as const, content: [{ type: 'image' as const, image: m.content }] };
       }
       return { role: 'user' as const, content: m.content };
-    }),
-    tools: toolsForCall as ToolSet,
-    stopWhen: stepCountIs(maxSteps),
-    maxRetries: 2,
-    abortSignal,
-  });
+    });
+
+  const streamWithTools = async (tools: Record<string, unknown> | undefined, promptOverride?: string) => {
+    return streamText({
+      model: llm,
+      system: promptOverride ?? systemPrompt,
+      messages: prepareMessages(),
+      tools: (tools ? tools : undefined) as ToolSet | undefined,
+      stopWhen: stepCountIs(maxSteps),
+      maxRetries: 2,
+      abortSignal,
+    });
+  };
 
   let toolStepCount = 0;
   const stepNotes: string[] = [];
   let finishUsage: LanguageModelUsage | null = null;
+  let retriedWithoutTools = false;
 
-  for await (const event of response.fullStream) {
-    if (event.type === 'text-delta') {
-      yield event.text;
-    } else if (event.type === 'tool-call') {
-      toolStepCount++;
-      const input =
-        'input' in event && event.input && typeof event.input === 'object'
-          ? (event.input as Record<string, unknown>)
-          : {};
-      startToolActivity(event.toolName, toolTarget(input));
-      yield `\n${CYAN}[tool] ${event.toolName}${RESET}\n`;
-    } else if (event.type === 'tool-result') {
-      const resultText = typeof event.output === 'string' ? event.output : String(event.output);
-      stepNotes.push(`${event.toolName}: ${resultText.slice(0, 120)}`);
-      finishToolActivity(event.toolName, { preview: resultText, ok: !resultText.startsWith('Error:') });
-      const preview = resultText.length > 200 ? resultText.slice(0, 200) + '...' : resultText;
-      yield `${CYAN}${preview}${RESET}\n`;
-    } else if (event.type === 'finish') {
-      finishUsage = event.totalUsage ?? null;
-      if (toolStepCount >= maxSteps) {
-        const progress = stepNotes.slice(-10).join('\n');
-        yield `\n${CYAN}Reached ${maxSteps} tool steps.\nProgress:\n${progress}\nSend "continue" to resume.${RESET}\n`;
+  const iterateStream = async function* (response: any): AsyncGenerator<string> {
+    for await (const event of response.fullStream) {
+      if (event.type === 'text-delta') {
+        yield event.text;
+      } else if (event.type === 'tool-call') {
+        toolStepCount++;
+        const input =
+          'input' in event && event.input && typeof event.input === 'object'
+            ? (event.input as Record<string, unknown>)
+            : {};
+        startToolActivity(event.toolName, toolTarget(input));
+        yield `\n${CYAN}[tool] ${event.toolName}${RESET}\n`;
+      } else if (event.type === 'tool-result') {
+        const resultText = typeof event.output === 'string' ? event.output : String(event.output);
+        stepNotes.push(`${event.toolName}: ${resultText.slice(0, 120)}`);
+        finishToolActivity(event.toolName, { preview: resultText, ok: !resultText.startsWith('Error:') });
+        const preview = resultText.length > 200 ? resultText.slice(0, 200) + '...' : resultText;
+        yield `${CYAN}${preview}${RESET}\n`;
+      } else if (event.type === 'error') {
+        const errMsg = event.error instanceof Error ? event.error.message : typeof event.error === 'string' ? event.error : JSON.stringify(event.error);
+        if (!retriedWithoutTools && errMsg.includes('Failed to call a function')) {
+          yield `${CYAN}Retrying without tools...${RESET}\n`;
+          retriedWithoutTools = true;
+          const retryResponse = await streamWithTools(undefined, 'You are Quak, a friendly terminal assistant. Respond conversationally and naturally. Do not mention or suggest creating projects unless the user explicitly asks.');
+          yield* iterateStream(retryResponse);
+          return;
+        }
+        throw new Error(`Model error: ${errMsg}`);
+      } else if (event.type === 'finish') {
+        finishUsage = event.totalUsage ?? null;
+        if (toolStepCount >= maxSteps) {
+          const progress = stepNotes.slice(-10).join('\n');
+          yield `\n${CYAN}Reached ${maxSteps} tool steps.\nProgress:\n${progress}\nSend "continue" to resume.${RESET}\n`;
+        }
       }
     }
-  }
+  };
 
-  if (finishUsage) {
+  const response = await streamWithTools(toolsForCall);
+  yield* iterateStream(response);
+
+  const usage = finishUsage!;
+  if (usage) {
     const provider = storage.getActiveProvider();
     recordCost(
       provider?.model ?? 'unknown',
       provider?.type ?? 'unknown',
-      finishUsage.inputTokens ?? 0,
-      finishUsage.outputTokens ?? 0,
+      usage.inputTokens ?? 0,
+      usage.outputTokens ?? 0,
     );
-    const tokens = finishUsage.inputTokens ?? 0;
+    const tokens = usage.inputTokens ?? 0;
     addToMemory(
       messages.slice(-1)[0]?.content ?? '',
       `conversation (${tokens} prompt tokens)`,

@@ -130,7 +130,7 @@ export function handleCommand(
 
     case '/provider': {
       if (args === 'list' || !args) return { output: listProviders(storage) };
-      if (args === 'add') return { output: 'Use /provider add <type> <name> <model> [apiKey]\nTypes: openai, anthropic, groq, ollama, huggingface\nExample: /provider add huggingface myhf meta-llama/Llama-3.1-8B-Instruct hf_...' };
+      if (args === 'add') return { output: 'Use /provider add <type> <name> <model> [apiKey] [baseUrl]\nTypes: openai, anthropic, groq, ollama, huggingface\nExample: /provider add huggingface myhf meta-llama/Llama-3.1-8B-Instruct hf_...' };
       const parts = args.split(' ');
       if (parts[0] === 'add' && parts.length >= 4) {
         addProvider(storage, {
@@ -138,6 +138,7 @@ export function handleCommand(
           name: parts[2],
           model: parts[3],
           apiKey: parts[4],
+          baseUrl: parts[5],
         });
         return { output: ` Provider "${parts[2]}" added!` };
       }
@@ -153,7 +154,7 @@ export function handleCommand(
     }
 
     case '/mode':
-      return { output: `Use /mode <agent|chat|plan> to switch modes` };
+      return { output: `Use /mode <agent|chat|plan|dontAsk> to switch modes` };
 
     case '/init': {
       const quakMd = `# QUAK.md - Project Context\n\nThis file helps Quak understand your project.\n\n## Overview\n- Project: ${projectDir.split('/').pop()}\n- Type: (describe your project type)\n\n## Structure\n- src/ - main source code\n- tests/ - test files\n\n## Conventions\n- (add your coding conventions here)\n\n## Notes\n- (add any project-specific notes here)\n`;
@@ -330,7 +331,7 @@ function formatHelp(level: number): string {
     { cmd: '/cost', desc: 'Show session token/cost', minLevel: 1 },
     { cmd: '/search <q>', desc: 'Search past sessions', minLevel: 1 },
     { cmd: '/export <id>', desc: 'Export session as markdown', minLevel: 1 },
-    { cmd: '/mode', desc: 'Switch agent/chat/plan', minLevel: 1 },
+    { cmd: '/mode', desc: 'Switch agent/chat/plan/dontAsk', minLevel: 1 },
     { cmd: '/project [path]', desc: 'Show or set project directory', minLevel: 1 },
     { cmd: '/permissions [mode]', desc: 'Show or set permission mode', minLevel: 1 },
     { cmd: '/memory', desc: 'View or add long-term memory', minLevel: 1 },
